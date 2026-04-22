@@ -9,8 +9,10 @@ use tower_http::services::{ServeDir, ServeFile};
 mod config;
 mod db;
 pub mod error;
+pub mod handlers;
 pub mod models;
 pub mod repo;
+pub mod routes;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -29,7 +31,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let app = Router::new()
         .route("/api/health", get(|| async { "lester-todo backend is running" }))
+        .merge(routes::api_routes())
         .fallback_service(static_service)
+        .with_state(pool.clone())
         .layer(build_cors_layer());
 
     let address = SocketAddr::from(([0, 0, 0, 0], config.port));
