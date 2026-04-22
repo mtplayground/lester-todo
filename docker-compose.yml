@@ -1,0 +1,17 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: sqlite:///data/lester-todo.db
+      PORT: "8080"
+      STATIC_DIR: /app/frontend/dist
+    volumes:
+      - lester_todo_data:/data
+    restart: unless-stopped
+
+volumes:
+  lester_todo_data:

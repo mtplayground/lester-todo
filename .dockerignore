@@ -1,0 +1,10 @@
+.git
+.claude
+.gh_token
+.progress
+.pipeline-state.json
+backend/target
+frontend/node_modules
+frontend/dist
+node_modules
+target
