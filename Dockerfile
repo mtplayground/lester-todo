@@ -1,48 +1,23 @@
-FROM node:20-bookworm-slim AS frontend-build
-
-WORKDIR /app/frontend
-
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci
-
-COPY frontend/ ./
-RUN npm run build
-
-
-FROM rust:1-bookworm AS backend-build
-
-WORKDIR /app/backend
+# Self-check: host `cargo build --release` succeeded with rustc 1.95.0, so PATH A is used.
+FROM debian:bookworm-slim
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends pkg-config libsqlite3-dev ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY backend/Cargo.toml backend/Cargo.lock ./
-COPY backend/src ./src
-COPY backend/migrations ./migrations
-
-RUN cargo build --release
-
-
-FROM debian:bookworm-slim AS runtime
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates libsqlite3-0 \
+    && apt-get install -y --no-install-recommends ca-certificates libssl3 sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-RUN mkdir -p /app/backend/migrations /app/frontend/dist /data
+COPY backend/target/release/backend /usr/local/bin/lester-todo
+COPY frontend/dist /app/frontend/dist
+COPY start.sh /app/start.sh
 
-COPY --from=backend-build /app/backend/target/release/backend /usr/local/bin/lester-todo
-COPY --from=backend-build /app/backend/migrations /app/backend/migrations
-COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
+RUN chmod +x /app/start.sh \
+    && mkdir -p /app/data /app/frontend/dist
 
-ENV DATABASE_URL=sqlite:///data/lester-todo.db
+ENV DATABASE_URL=sqlite:/app/data/data.db?mode=rwc
 ENV PORT=8080
 ENV STATIC_DIR=/app/frontend/dist
 
 EXPOSE 8080
-VOLUME ["/data"]
 
-CMD ["lester-todo"]
+CMD ["/app/start.sh"]

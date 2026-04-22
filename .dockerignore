@@ -1,10 +1,7 @@
 .git
 .claude
 .gh_token
-.progress
-.pipeline-state.json
-backend/target
-frontend/node_modules
-frontend/dist
+.github_token
+target/debug
+target/wasm32-unknown-unknown
 node_modules
-target

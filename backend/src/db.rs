@@ -1,8 +1,8 @@
-use std::path::Path;
-
 use sqlx::migrate::{MigrateError, Migrator};
 use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::SqlitePool;
+
+static MIGRATOR: Migrator = sqlx::migrate!();
 
 pub async fn connect(database_url: &str) -> Result<SqlitePool, sqlx::Error> {
     SqlitePoolOptions::new()
@@ -12,8 +12,5 @@ pub async fn connect(database_url: &str) -> Result<SqlitePool, sqlx::Error> {
 }
 
 pub async fn run_migrations(pool: &SqlitePool) -> Result<(), MigrateError> {
-    let migrations_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
-    let migrator = Migrator::new(migrations_path.as_path()).await?;
-
-    migrator.run(pool).await
+    MIGRATOR.run(pool).await
 }

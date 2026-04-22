@@ -1,0 +1,18 @@
+app = "lester-todo-1377ea"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_start = true
+  auto_stop = "stop"
+
+[mounts]
+  source = "data"
+  destination = "/app/data"
+
+[env]
+  DATABASE_URL = "sqlite:/app/data/data.db?mode=rwc"
