@@ -1,4 +1,7 @@
+import { useState } from "react";
+
 import TodoForm from "./components/TodoForm";
+import FilterTabs, { type TodoFilter } from "./components/FilterTabs";
 import TodoList from "./components/TodoList";
 import { useCreateTodoMutation, useTodosQuery } from "./api/todos";
 
@@ -6,6 +9,23 @@ function App() {
   const todosQuery = useTodosQuery();
   const createTodoMutation = useCreateTodoMutation();
   const todos = todosQuery.data ?? [];
+  const [activeFilter, setActiveFilter] = useState<TodoFilter>("all");
+  const counts = {
+    all: todos.length,
+    active: todos.filter((todo) => !todo.completed).length,
+    completed: todos.filter((todo) => todo.completed).length,
+  };
+  const filteredTodos = todos.filter((todo) => {
+    if (activeFilter === "active") {
+      return !todo.completed;
+    }
+
+    if (activeFilter === "completed") {
+      return todo.completed;
+    }
+
+    return true;
+  });
 
   async function handleCreateTodo(title: string) {
     await createTodoMutation.mutateAsync({ title });
@@ -33,12 +53,18 @@ function App() {
           onSubmit={handleCreateTodo}
         />
 
+        <FilterTabs
+          activeFilter={activeFilter}
+          counts={counts}
+          onChange={setActiveFilter}
+        />
+
         {todosQuery.isLoading ? (
           <section className="rounded-3xl border border-slate-800/80 bg-slate-900/70 p-10 text-center text-slate-300">
             Loading todos...
           </section>
         ) : (
-          <TodoList todos={todos} />
+          <TodoList todos={filteredTodos} />
         )}
       </section>
     </main>
