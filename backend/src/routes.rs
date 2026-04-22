@@ -2,8 +2,10 @@ use axum::routing::get;
 use axum::Router;
 use sqlx::SqlitePool;
 
-use crate::handlers::todo::{create_todo, list_todos};
+use crate::handlers::todo::{create_todo, list_todos, update_todo};
 
 pub fn api_routes() -> Router<SqlitePool> {
-    Router::new().route("/api/todos", get(list_todos).post(create_todo))
+    Router::new()
+        .route("/api/todos", get(list_todos).post(create_todo))
+        .route("/api/todos/:id", axum::routing::patch(update_todo))
 }
