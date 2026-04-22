@@ -80,3 +80,16 @@ pub async fn update_todo(
 
     Ok(Json(todo))
 }
+
+pub async fn delete_todo(
+    State(pool): State<SqlitePool>,
+    Path(id): Path<i64>,
+) -> Result<StatusCode, ApiError> {
+    let deleted = repo::todo::delete(&pool, id).await?;
+
+    if deleted {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(ApiError::not_found("todo not found"))
+    }
+}
