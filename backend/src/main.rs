@@ -8,6 +8,8 @@ use tower_http::services::{ServeDir, ServeFile};
 
 mod config;
 mod db;
+pub mod models;
+pub mod repo;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
