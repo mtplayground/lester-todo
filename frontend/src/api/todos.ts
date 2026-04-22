@@ -29,6 +29,10 @@ export const todoQueryKeys = {
   all: ["todos"] as const,
 };
 
+type TodoMutationContext = {
+  previousTodos?: Todo[];
+};
+
 export function useTodosQuery(): UseQueryResult<Todo[], Error> {
   return useQuery({
     queryKey: todoQueryKeys.all,
@@ -61,7 +65,8 @@ export function useCreateTodoMutation(): UseMutationResult<
 export function useUpdateTodoMutation(): UseMutationResult<
   Todo,
   Error,
-  { id: number; changes: UpdateTodoInput }
+  { id: number; changes: UpdateTodoInput },
+  TodoMutationContext
 > {
   const queryClient = useQueryClient();
 
@@ -74,7 +79,30 @@ export function useUpdateTodoMutation(): UseMutationResult<
         },
         body: changes,
       }),
-    onSuccess: async () => {
+    onMutate: async ({ id, changes }) => {
+      await queryClient.cancelQueries({ queryKey: todoQueryKeys.all });
+
+      const previousTodos = queryClient.getQueryData<Todo[]>(todoQueryKeys.all);
+
+      queryClient.setQueryData<Todo[]>(todoQueryKeys.all, (currentTodos) =>
+        currentTodos?.map((todo) =>
+          todo.id === id
+            ? {
+                ...todo,
+                ...changes,
+              }
+            : todo,
+        ),
+      );
+
+      return { previousTodos };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousTodos) {
+        queryClient.setQueryData(todoQueryKeys.all, context.previousTodos);
+      }
+    },
+    onSettled: async () => {
       await queryClient.invalidateQueries({ queryKey: todoQueryKeys.all });
     },
   });
