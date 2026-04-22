@@ -1,0 +1,136 @@
+# Lester Todo Architecture Plan
+
+## Target structure
+
+Repository layout:
+
+- `backend/`
+  - `Cargo.toml`
+  - `src/main.rs`
+  - `src/config.rs`
+  - `src/db.rs`
+  - `src/error.rs`
+  - `src/routes.rs`
+  - `src/handlers/mod.rs`
+  - `src/handlers/todo.rs`
+  - `src/models/mod.rs`
+  - `src/models/todo.rs`
+  - `src/repo/mod.rs`
+  - `src/repo/todo.rs`
+  - `migrations/`
+  - `tests/todos.rs`
+- `frontend/`
+  - `package.json`
+  - `vite.config.ts`
+  - `tsconfig.json`
+  - `tailwind.config.js`
+  - `index.html`
+  - `src/main.tsx`
+  - `src/App.tsx`
+  - `src/index.css`
+  - `src/api/client.ts`
+  - `src/api/todos.ts`
+  - `src/types/todo.ts`
+  - `src/components/TodoForm.tsx`
+  - `src/components/TodoList.tsx`
+  - `src/components/TodoItem.tsx`
+  - `src/components/FilterTabs.tsx`
+- `.env.example`
+- `.gitignore`
+- `.dockerignore`
+- `Dockerfile`
+- `docker-compose.yml`
+- `README.md`
+
+## Backend design
+
+- Framework: Axum with a small `AppState` shared through router state.
+- Config: `config.rs` loads `DATABASE_URL`, `PORT`, and `STATIC_DIR` with sane dev defaults where possible.
+- DB: SQLx `SqlitePool` created once at startup; migrations run before binding the server.
+- Error handling: central `ApiError` implementing `IntoResponse` so handlers and repo functions can return typed failures consistently.
+- Routing: `routes.rs` owns `/api/todos` registration; `main.rs` stays focused on bootstrapping layers and startup wiring.
+- Persistence boundary: `repo/todo.rs` contains SQLx queries; handlers never embed raw SQL.
+- Models: `models/todo.rs` defines the DB/API-facing `Todo` struct plus request DTOs where reuse is warranted.
+- Static serving: tower-http serves built frontend files from `STATIC_DIR`, with API routes mounted first so SPA fallback does not intercept `/api/*`.
+
+## Frontend design
+
+- Stack: React + Vite + TypeScript + Tailwind + TanStack Query.
+- Shared client types: `src/types/todo.ts` should mirror backend JSON shapes (`Todo`, create payload, patch payload, API error body).
+- API layer:
+  - `api/client.ts` provides a small `fetchJson` wrapper handling JSON parsing, non-2xx error decoding, and base headers.
+  - `api/todos.ts` exposes query/mutation hooks and cache keys.
+- UI composition:
+  - `App.tsx` coordinates list query, filter state, and page-level status/error presentation.
+  - `TodoForm.tsx` owns create submission.
+  - `TodoList.tsx` renders filtered todos.
+  - `TodoItem.tsx` owns toggle, inline edit, and delete confirmation controls.
+  - `FilterTabs.tsx` is pure presentational state control.
+- Filtering stays client-side because issue #18 explicitly scopes it that way and the dataset is small.
+
+## Shared contracts
+
+- Todo JSON shape:
+  - `id: number`
+  - `title: string`
+  - `completed: boolean`
+  - `created_at: string`
+  - `updated_at: string`
+- Create request: `{ "title": string }`
+- Patch request: `{ "title"?: string, "completed"?: boolean }`
+- Error response: `{ "error": { "code": string, "message": string } }`
+
+## Schema decisions
+
+- `todos` table fields:
+  - `id INTEGER PRIMARY KEY AUTOINCREMENT`
+  - `title TEXT NOT NULL`
+  - `completed INTEGER NOT NULL DEFAULT 0`
+  - `created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP`
+  - `updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP`
+- Store timestamps as UTC SQLite text timestamps for simpler SQLx + JSON serialization in an MVP.
+- `updated_at` should be refreshed in update queries in repo methods rather than relying on DB triggers, to keep migrations simple.
+
+## Issue dependency map
+
+Bootstrap path:
+
+1. Issue #1 creates the backend crate, repo metadata, and root docs.
+2. Issue #2 creates the frontend app scaffold.
+3. Issue #3 adds config loading used by backend startup.
+4. Issue #4 adds SQLx pool + migration runner.
+5. Issue #5 adds CORS/static serving around the existing app.
+6. Issue #6 packages the repo once backend/frontend startup conventions exist.
+
+Backend delivery path:
+
+1. Issue #7 adds the first real migration.
+2. Issue #8 adds `Todo` model + repository over that schema.
+3. Issue #9 establishes the API error contract.
+4. Issue #10 adds list/create handlers and routing.
+5. Issue #11 adds partial update.
+6. Issue #12 adds delete.
+7. Issue #19 validates the backend surface with integration tests.
+
+Frontend delivery path:
+
+1. Issue #13 adds typed client + React Query integration once backend endpoints exist.
+2. Issue #14 adds baseline list/create UI.
+3. Issue #15 adds optimistic toggle.
+4. Issue #16 adds inline edit.
+5. Issue #17 adds deletion UX.
+6. Issue #18 adds client-side filtering.
+7. Issue #20 adds loading/error/empty-state polish after the main interactions exist.
+
+Release path:
+
+1. Issue #21 verifies Dockerized end-to-end behavior and final README instructions.
+
+## Key decisions to preserve across sessions
+
+- Keep backend boot composition modular from the start so later issues do not require moving large blocks out of `main.rs`.
+- Put request validation in handlers, not repo methods, to keep repository logic about persistence only.
+- Keep a single canonical Todo JSON contract and mirror it in frontend TS types to avoid drift.
+- Use React Query cache invalidation plus targeted optimistic updates instead of hand-rolled global state.
+- Prefer an app shell where the backend serves built frontend assets in production, but frontend runs separately in dev via Vite.
+- Design tests around constructing the Axum router with injected in-memory SQLite state so endpoint coverage does not require a live server process.
