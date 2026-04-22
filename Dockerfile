@@ -9,6 +9,7 @@ WORKDIR /app
 
 COPY backend/target/release/backend /usr/local/bin/lester-todo
 COPY frontend/dist /app/frontend/dist
+COPY .env /app/.env
 COPY start.sh /app/start.sh
 
 RUN chmod +x /app/start.sh \
