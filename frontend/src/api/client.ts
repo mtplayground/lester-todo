@@ -24,6 +24,21 @@ export class ApiClientError extends Error {
   }
 }
 
+export function getApiErrorMessage(
+  error: unknown,
+  fallback = "Something went wrong. Please try again.",
+): string {
+  if (error instanceof ApiClientError) {
+    return error.message;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
 export async function apiRequest<TResponse, TBody = undefined>(
   path: string,
   options: RequestOptions<TBody> = {},

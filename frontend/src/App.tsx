@@ -1,7 +1,10 @@
 import { useState } from "react";
 
+import { getApiErrorMessage } from "./api/client";
 import TodoForm from "./components/TodoForm";
+import ErrorBanner from "./components/ErrorBanner";
 import FilterTabs, { type TodoFilter } from "./components/FilterTabs";
+import LoadingPanel from "./components/LoadingPanel";
 import TodoList from "./components/TodoList";
 import { useCreateTodoMutation, useTodosQuery } from "./api/todos";
 
@@ -14,6 +17,20 @@ function App() {
     all: todos.length,
     active: todos.filter((todo) => !todo.completed).length,
     completed: todos.filter((todo) => todo.completed).length,
+  };
+  const emptyStates = {
+    all: {
+      title: "No todos yet",
+      message: "Add your first task above to start building your list.",
+    },
+    active: {
+      title: "No active todos",
+      message: "Everything is complete right now. Flip a task back on or add a new one.",
+    },
+    completed: {
+      title: "Nothing completed yet",
+      message: "Finish a task to see it appear in the completed view.",
+    },
   };
   const filteredTodos = todos.filter((todo) => {
     if (activeFilter === "active") {
@@ -30,6 +47,11 @@ function App() {
   async function handleCreateTodo(title: string) {
     await createTodoMutation.mutateAsync({ title });
   }
+
+  const bannerMessages = [
+    todosQuery.error ? getApiErrorMessage(todosQuery.error) : null,
+    createTodoMutation.error ? getApiErrorMessage(createTodoMutation.error) : null,
+  ].filter((message): message is string => Boolean(message));
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.16),_transparent_35%),linear-gradient(180deg,_#020617_0%,_#0f172a_100%)] px-6 py-12 text-slate-100">
@@ -48,7 +70,16 @@ function App() {
           </p>
         </header>
 
+        {bannerMessages.map((message) => (
+          <ErrorBanner key={message} message={message} />
+        ))}
+
         <TodoForm
+          errorMessage={
+            createTodoMutation.error
+              ? getApiErrorMessage(createTodoMutation.error)
+              : undefined
+          }
           isSubmitting={createTodoMutation.isPending}
           onSubmit={handleCreateTodo}
         />
@@ -60,11 +91,13 @@ function App() {
         />
 
         {todosQuery.isLoading ? (
-          <section className="rounded-3xl border border-slate-800/80 bg-slate-900/70 p-10 text-center text-slate-300">
-            Loading todos...
-          </section>
+          <LoadingPanel label="Loading todos" />
         ) : (
-          <TodoList todos={filteredTodos} />
+          <TodoList
+            emptyMessage={emptyStates[activeFilter].message}
+            emptyTitle={emptyStates[activeFilter].title}
+            todos={filteredTodos}
+          />
         )}
       </section>
     </main>

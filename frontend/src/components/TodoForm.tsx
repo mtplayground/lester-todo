@@ -1,11 +1,16 @@
 import { useState } from "react";
 
 type TodoFormProps = {
+  errorMessage?: string;
   isSubmitting?: boolean;
   onSubmit: (title: string) => Promise<void> | void;
 };
 
-function TodoForm({ isSubmitting = false, onSubmit }: TodoFormProps) {
+function TodoForm({
+  errorMessage,
+  isSubmitting = false,
+  onSubmit,
+}: TodoFormProps) {
   const [title, setTitle] = useState("");
   const [validationError, setValidationError] = useState("");
 
@@ -36,21 +41,34 @@ function TodoForm({ isSubmitting = false, onSubmit }: TodoFormProps) {
         <input
           className="min-w-0 flex-1 rounded-2xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-base text-slate-100 outline-none transition focus:border-cyan-400"
           name="title"
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={(event) => {
+            setTitle(event.target.value);
+            if (validationError) {
+              setValidationError("");
+            }
+          }}
           placeholder="What needs to get done?"
           value={title}
         />
         <button
-          className="rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-300 px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
           disabled={isSubmitting}
           type="submit"
         >
-          {isSubmitting ? "Adding..." : "Add Todo"}
+          {isSubmitting ? (
+            <>
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-500 border-t-slate-950" />
+              Adding...
+            </>
+          ) : (
+            "Add Todo"
+          )}
         </button>
       </div>
       {validationError ? (
         <p className="text-sm text-amber-300">{validationError}</p>
       ) : null}
+      {errorMessage ? <p className="text-sm text-rose-300">{errorMessage}</p> : null}
     </form>
   );
 }

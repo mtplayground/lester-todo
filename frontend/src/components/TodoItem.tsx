@@ -5,6 +5,7 @@ import {
   useUpdateTodoMutation,
   type Todo,
 } from "../api/todos";
+import { getApiErrorMessage } from "../api/client";
 
 type TodoItemProps = {
   todo: Todo;
@@ -19,6 +20,7 @@ function TodoItem({ todo }: TodoItemProps) {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [draftTitle, setDraftTitle] = useState(todo.title);
   const isMutating = updateTodoMutation.isPending || deleteTodoMutation.isPending;
+  const mutationError = updateTodoMutation.error ?? deleteTodoMutation.error;
 
   useEffect(() => {
     if (!isEditing) {
@@ -64,9 +66,9 @@ function TodoItem({ todo }: TodoItemProps) {
   }
 
   return (
-    <li className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3">
+    <li className="rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3">
       {isConfirmingDelete ? (
-        <div className="flex w-full items-center justify-between gap-4 rounded-2xl border border-rose-500/30 bg-rose-950/40 px-4 py-3">
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-rose-500/30 bg-rose-950/40 px-4 py-3">
           <p className="text-sm text-rose-100">Delete this todo?</p>
           <div className="flex items-center gap-2">
             <button
@@ -88,7 +90,7 @@ function TodoItem({ todo }: TodoItemProps) {
           </div>
         </div>
       ) : (
-        <>
+        <div className="flex items-center gap-4">
           <input
             checked={todo.completed}
             className="h-5 w-5 rounded border-slate-600 bg-slate-900 text-cyan-300 accent-cyan-300"
@@ -164,8 +166,13 @@ function TodoItem({ todo }: TodoItemProps) {
               Delete
             </button>
           </div>
-        </>
+        </div>
       )}
+      {mutationError ? (
+        <p className="mt-3 text-sm text-rose-300">
+          {getApiErrorMessage(mutationError)}
+        </p>
+      ) : null}
     </li>
   );
 }
