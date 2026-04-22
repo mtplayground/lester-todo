@@ -1,19 +1,21 @@
-use std::io;
 use std::net::SocketAddr;
 
 use axum::{routing::get, Router};
 
 mod config;
+mod db;
 
 #[tokio::main]
-async fn main() -> io::Result<()> {
-    let config = config::Config::load().map_err(io::Error::other)?;
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let config = config::Config::load()?;
     let database_kind = config
         .database_url
         .split(':')
         .next()
         .filter(|value| !value.is_empty())
         .unwrap_or("configured");
+    let pool = db::connect(&config.database_url).await?;
+    db::run_migrations(&pool).await?;
 
     let app = Router::new().route("/", get(|| async { "lester-todo backend is running" }));
 
@@ -25,5 +27,7 @@ async fn main() -> io::Result<()> {
         config.static_dir.display(),
     );
 
-    axum::serve(listener, app).await
+    axum::serve(listener, app).await?;
+
+    Ok(())
 }
