@@ -1,136 +1,171 @@
-# Lester Todo Architecture Plan
+# Lester Todo Admin Architecture Plan
 
-## Target structure
+## Scope
 
-Repository layout:
+This plan covers issues `#44` through `#50`:
 
-- `backend/`
-  - `Cargo.toml`
-  - `src/main.rs`
-  - `src/config.rs`
-  - `src/db.rs`
-  - `src/error.rs`
-  - `src/routes.rs`
-  - `src/handlers/mod.rs`
-  - `src/handlers/todo.rs`
-  - `src/models/mod.rs`
-  - `src/models/todo.rs`
-  - `src/repo/mod.rs`
-  - `src/repo/todo.rs`
-  - `migrations/`
-  - `tests/todos.rs`
-- `frontend/`
-  - `package.json`
-  - `vite.config.ts`
-  - `tsconfig.json`
-  - `tailwind.config.js`
-  - `index.html`
-  - `src/main.tsx`
-  - `src/App.tsx`
-  - `src/index.css`
-  - `src/api/client.ts`
-  - `src/api/todos.ts`
-  - `src/types/todo.ts`
-  - `src/components/TodoForm.tsx`
-  - `src/components/TodoList.tsx`
-  - `src/components/TodoItem.tsx`
-  - `src/components/FilterTabs.tsx`
-- `.env.example`
-- `.gitignore`
-- `.dockerignore`
-- `Dockerfile`
-- `docker-compose.yml`
-- `README.md`
+- `#44` `GET /api/admin/stats`
+- `#45` `DELETE /api/admin/todos/completed`
+- `#46` `DELETE /api/admin/todos`
+- `#47` client-side routing and nav
+- `#48` admin page stats panel
+- `#49` admin page bulk actions
+- `#50` integration tests for admin endpoints
 
-## Backend design
+## Current repo shape
 
-- Framework: Axum with a small `AppState` shared through router state.
-- Config: `config.rs` loads `DATABASE_URL`, `PORT`, and `STATIC_DIR` with sane dev defaults where possible.
-- DB: SQLx `SqlitePool` created once at startup; migrations run before binding the server.
-- Error handling: central `ApiError` implementing `IntoResponse` so handlers and repo functions can return typed failures consistently.
-- Routing: `routes.rs` owns `/api/todos` registration; `main.rs` stays focused on bootstrapping layers and startup wiring.
-- Persistence boundary: `repo/todo.rs` contains SQLx queries; handlers never embed raw SQL.
-- Models: `models/todo.rs` defines the DB/API-facing `Todo` struct plus request DTOs where reuse is warranted.
-- Static serving: tower-http serves built frontend files from `STATIC_DIR`, with API routes mounted first so SPA fallback does not intercept `/api/*`.
+- Backend already has clear boundaries:
+  - `backend/src/routes.rs` registers API routes.
+  - `backend/src/handlers/` owns HTTP request/response logic.
+  - `backend/src/repo/` owns SQLx queries.
+  - `backend/src/models/` holds shared Rust data shapes.
+- Frontend already uses:
+  - `frontend/src/api/client.ts` as the fetch wrapper.
+  - `frontend/src/api/todos.ts` for React Query hooks and cache keys.
+  - `frontend/src/App.tsx` as the current todo page.
 
-## Frontend design
+That makes the admin work an additive slice rather than a refactor.
 
-- Stack: React + Vite + TypeScript + Tailwind + TanStack Query.
-- Shared client types: `src/types/todo.ts` should mirror backend JSON shapes (`Todo`, create payload, patch payload, API error body).
-- API layer:
-  - `api/client.ts` provides a small `fetchJson` wrapper handling JSON parsing, non-2xx error decoding, and base headers.
-  - `api/todos.ts` exposes query/mutation hooks and cache keys.
-- UI composition:
-  - `App.tsx` coordinates list query, filter state, and page-level status/error presentation.
-  - `TodoForm.tsx` owns create submission.
-  - `TodoList.tsx` renders filtered todos.
-  - `TodoItem.tsx` owns toggle, inline edit, and delete confirmation controls.
-  - `FilterTabs.tsx` is pure presentational state control.
-- Filtering stays client-side because issue #18 explicitly scopes it that way and the dataset is small.
+## Module structure and file organization
 
-## Shared contracts
+### Backend
 
-- Todo JSON shape:
-  - `id: number`
-  - `title: string`
-  - `completed: boolean`
-  - `created_at: string`
-  - `updated_at: string`
-- Create request: `{ "title": string }`
-- Patch request: `{ "title"?: string, "completed"?: boolean }`
-- Error response: `{ "error": { "code": string, "message": string } }`
+- Add `backend/src/handlers/admin.rs`
+  - `get_stats`
+  - `clear_completed_todos`
+  - `delete_all_todos`
+- Update `backend/src/handlers/mod.rs`
+  - export `admin`
+- Extend `backend/src/repo/todo.rs`
+  - add repo functions for stats and bulk deletes so SQL stays in one place
+- Extend `backend/src/models/todo.rs` or add `backend/src/models/admin.rs`
+  - preferred: add `models/admin.rs` for admin-only payloads
+  - response type for stats
+  - response type for bulk delete counts
+- Update `backend/src/models/mod.rs`
+  - export `admin` if the new file is used
+- Update `backend/src/routes.rs`
+  - register `/api/admin/stats`
+  - register `/api/admin/todos/completed`
+  - register `/api/admin/todos`
+- Add `backend/tests/admin.rs`
+  - separate integration coverage for admin endpoints
 
-## Schema decisions
+### Frontend
 
-- `todos` table fields:
-  - `id INTEGER PRIMARY KEY AUTOINCREMENT`
-  - `title TEXT NOT NULL`
-  - `completed INTEGER NOT NULL DEFAULT 0`
-  - `created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP`
-  - `updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP`
-- Store timestamps as UTC SQLite text timestamps for simpler SQLx + JSON serialization in an MVP.
-- `updated_at` should be refreshed in update queries in repo methods rather than relying on DB triggers, to keep migrations simple.
+- Add `frontend/src/components/NavBar.tsx`
+  - links for `/` and `/admin`
+- Add `frontend/src/pages/TodosPage.tsx`
+  - move current `App.tsx` todo UI here to keep routing clean
+- Add `frontend/src/pages/AdminPage.tsx`
+  - stats panel
+  - bulk action controls
+- Add `frontend/src/api/admin.ts`
+  - admin query keys
+  - typed query hook for stats
+  - mutations for clear completed and delete all
+- Update `frontend/src/App.tsx`
+  - define route layout and render navbar plus route outlet/page selection
+- Update `frontend/src/main.tsx`
+  - add router provider or browser router wrapper
+- Update `frontend/package.json`
+  - add `react-router-dom`
 
-## Issue dependency map
+## Shared types
 
-Bootstrap path:
+### Backend response types
 
-1. Issue #1 creates the backend crate, repo metadata, and root docs.
-2. Issue #2 creates the frontend app scaffold.
-3. Issue #3 adds config loading used by backend startup.
-4. Issue #4 adds SQLx pool + migration runner.
-5. Issue #5 adds CORS/static serving around the existing app.
-6. Issue #6 packages the repo once backend/frontend startup conventions exist.
+- `AdminStats`
+  - `total: i64`
+  - `active: i64`
+  - `completed: i64`
+  - `oldest_created_at: Option<String>`
+  - `newest_created_at: Option<String>`
+- `BulkDeleteResult`
+  - `deleted: u64` or `i64`
 
-Backend delivery path:
+### Frontend types
 
-1. Issue #7 adds the first real migration.
-2. Issue #8 adds `Todo` model + repository over that schema.
-3. Issue #9 establishes the API error contract.
-4. Issue #10 adds list/create handlers and routing.
-5. Issue #11 adds partial update.
-6. Issue #12 adds delete.
-7. Issue #19 validates the backend surface with integration tests.
+- Mirror backend JSON exactly in `frontend/src/api/admin.ts`
+  - `AdminStats`
+  - `BulkDeleteResult`
+- Keep admin types local to `api/admin.ts` unless reused broadly
+- Reuse existing `ApiClientError` and `getApiErrorMessage` from `api/client.ts`
 
-Frontend delivery path:
+## Key design decisions
 
-1. Issue #13 adds typed client + React Query integration once backend endpoints exist.
-2. Issue #14 adds baseline list/create UI.
-3. Issue #15 adds optimistic toggle.
-4. Issue #16 adds inline edit.
-5. Issue #17 adds deletion UX.
-6. Issue #18 adds client-side filtering.
-7. Issue #20 adds loading/error/empty-state polish after the main interactions exist.
+- Keep admin SQL in `repo/todo.rs` instead of creating a new repo module.
+  - Reason: admin actions operate on the same `todos` table and reuse the existing persistence boundary.
+- Keep admin handlers in a separate `handlers/admin.rs`.
+  - Reason: route-level behavior is distinct from normal todo CRUD and will stay easier to test and extend.
+- Use explicit JSON bodies for bulk-delete responses instead of `204`.
+  - Reason: issues `#45` and `#46` require returning deleted counts.
+- Return `Option` timestamps for stats.
+  - Reason: empty tables must be represented without inventing sentinel timestamps.
+- Invalidate React Query caches after admin mutations.
+  - Invalidate both todo list and admin stats keys so the admin page and main page stay consistent.
+- Move the current todo screen into `TodosPage` before adding admin UI.
+  - Reason: routing stays simple and issue `#47` becomes a clean mechanical change.
 
-Release path:
+## Endpoint and query design
 
-1. Issue #21 verifies Dockerized end-to-end behavior and final README instructions.
+### `GET /api/admin/stats`
 
-## Key decisions to preserve across sessions
+- Repository returns one row with:
+  - total count
+  - completed count
+  - active count derived as `total - completed` or via conditional aggregate
+  - `MIN(created_at)` as oldest
+  - `MAX(created_at)` as newest
+- Handler returns a single JSON object.
 
-- Keep backend boot composition modular from the start so later issues do not require moving large blocks out of `main.rs`.
-- Put request validation in handlers, not repo methods, to keep repository logic about persistence only.
-- Keep a single canonical Todo JSON contract and mirror it in frontend TS types to avoid drift.
-- Use React Query cache invalidation plus targeted optimistic updates instead of hand-rolled global state.
-- Prefer an app shell where the backend serves built frontend assets in production, but frontend runs separately in dev via Vite.
-- Design tests around constructing the Axum router with injected in-memory SQLite state so endpoint coverage does not require a live server process.
+### `DELETE /api/admin/todos/completed`
+
+- Repository executes a delete filtered by `completed = true`.
+- Use `rows_affected()` for the returned count.
+- Handler returns `{ "deleted": count }`.
+
+### `DELETE /api/admin/todos`
+
+- Repository deletes all rows from `todos`.
+- Use `rows_affected()` for the returned count.
+- Handler returns `{ "deleted": count }`.
+
+## Issue dependencies
+
+Recommended execution order:
+
+1. `#44` backend stats endpoint
+2. `#45` clear completed endpoint
+3. `#46` delete all endpoint
+4. `#50` backend integration tests
+5. `#47` client-side routing and nav
+6. `#48` admin stats page
+7. `#49` admin bulk actions
+
+Dependency notes:
+
+- `#48` depends on `#44` and `#47`.
+- `#49` depends on `#45`, `#46`, `#47`, and benefits from `#48` establishing the admin page skeleton.
+- `#50` should land after `#44` to `#46`, but before frontend work is also fine.
+
+## Testing plan
+
+- Follow the existing integration-test pattern in `backend/tests/todos.rs`.
+- Add `backend/tests/admin.rs` with in-memory SQLite and migrated schema.
+- Cover:
+  - stats on empty table
+  - stats with mixed completed and active todos
+  - clear completed on empty table
+  - clear completed with mixed todos and verify active rows remain
+  - delete all on empty table
+  - delete all on populated table and verify table is empty
+
+## Session guidance
+
+- Keep each issue isolated to its scoped files, but preserve these shared contracts:
+  - backend admin JSON shapes
+  - frontend query-key naming
+  - route layout with `/` and `/admin`
+- Avoid mixing frontend polish into the backend issue sessions.
+- Treat `TodosPage` extraction as the first step when implementing routing so later admin work stays small.
