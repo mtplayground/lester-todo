@@ -41,3 +41,11 @@ pub async fn clear_completed_todos(
 
     Ok(Json(BulkDeleteResponse { deleted }))
 }
+
+pub async fn delete_all_todos(
+    State(pool): State<SqlitePool>,
+) -> Result<Json<BulkDeleteResponse>, ApiError> {
+    let deleted = repo::todo::delete_all(&pool).await?;
+
+    Ok(Json(BulkDeleteResponse { deleted }))
+}
