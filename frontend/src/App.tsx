@@ -9,6 +9,7 @@ import LoadingPanel from "./components/LoadingPanel";
 import NavBar from "./components/NavBar";
 import TodoList from "./components/TodoList";
 import { useCreateTodoMutation, useTodosQuery } from "./api/todos";
+import AdminPage from "./pages/AdminPage";
 
 function TodosPage() {
   const todosQuery = useTodosQuery();
@@ -90,24 +91,6 @@ function TodosPage() {
   );
 }
 
-function AdminRoutePlaceholder() {
-  return (
-    <section className="rounded-[2rem] border border-slate-800/80 bg-slate-900/70 p-8 shadow-2xl shadow-slate-950/30 backdrop-blur">
-      <p className="text-sm font-medium uppercase tracking-[0.3em] text-cyan-300">
-        Admin
-      </p>
-      <h2 className="mt-4 text-3xl font-semibold tracking-tight text-slate-50">
-        Admin tools are routed and ready.
-      </h2>
-      <p className="mt-4 max-w-2xl text-base leading-7 text-slate-300">
-        This route is in place for the upcoming admin stats and bulk-action
-        work. Use the navigation above to switch between the main todo workspace
-        and the admin section.
-      </p>
-    </section>
-  );
-}
-
 function App() {
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.16),_transparent_35%),linear-gradient(180deg,_#020617_0%,_#0f172a_100%)] px-6 py-12 text-slate-100">
@@ -134,7 +117,7 @@ function App() {
 
         <Routes>
           <Route element={<TodosPage />} path="/" />
-          <Route element={<AdminRoutePlaceholder />} path="/admin" />
+          <Route element={<AdminPage />} path="/admin" />
           <Route element={<Navigate replace to="/" />} path="*" />
         </Routes>
       </section>
