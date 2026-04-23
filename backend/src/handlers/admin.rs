@@ -28,3 +28,16 @@ pub async fn get_admin_stats(
         newest_created_at: stats.newest_created_at,
     }))
 }
+
+#[derive(Debug, Serialize)]
+pub struct BulkDeleteResponse {
+    pub deleted: u64,
+}
+
+pub async fn clear_completed_todos(
+    State(pool): State<SqlitePool>,
+) -> Result<Json<BulkDeleteResponse>, ApiError> {
+    let deleted = repo::todo::clear_completed(&pool).await?;
+
+    Ok(Json(BulkDeleteResponse { deleted }))
+}

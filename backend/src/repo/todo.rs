@@ -101,3 +101,16 @@ pub async fn delete(pool: &SqlitePool, id: i64) -> Result<bool, sqlx::Error> {
 
     Ok(result.rows_affected() > 0)
 }
+
+pub async fn clear_completed(pool: &SqlitePool) -> Result<u64, sqlx::Error> {
+    let result = sqlx::query(
+        r#"
+        DELETE FROM todos
+        WHERE completed = 1
+        "#,
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected())
+}
