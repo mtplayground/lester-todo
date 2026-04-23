@@ -2,6 +2,15 @@ use sqlx::SqlitePool;
 
 use crate::models::todo::{NewTodo, Todo, UpdateTodo};
 
+#[derive(Debug, sqlx::FromRow)]
+pub struct TodoStats {
+    pub total: i64,
+    pub active: i64,
+    pub completed: i64,
+    pub oldest_created_at: Option<String>,
+    pub newest_created_at: Option<String>,
+}
+
 pub async fn list(pool: &SqlitePool) -> Result<Vec<Todo>, sqlx::Error> {
     sqlx::query_as::<_, Todo>(
         r#"
@@ -11,6 +20,22 @@ pub async fn list(pool: &SqlitePool) -> Result<Vec<Todo>, sqlx::Error> {
         "#,
     )
     .fetch_all(pool)
+    .await
+}
+
+pub async fn stats(pool: &SqlitePool) -> Result<TodoStats, sqlx::Error> {
+    sqlx::query_as::<_, TodoStats>(
+        r#"
+        SELECT
+            COUNT(*) AS total,
+            COALESCE(SUM(CASE WHEN completed = 0 THEN 1 ELSE 0 END), 0) AS active,
+            COALESCE(SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END), 0) AS completed,
+            MIN(created_at) AS oldest_created_at,
+            MAX(created_at) AS newest_created_at
+        FROM todos
+        "#,
+    )
+    .fetch_one(pool)
     .await
 }
 
